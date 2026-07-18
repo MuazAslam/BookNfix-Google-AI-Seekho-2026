@@ -2,7 +2,7 @@
 
 <br/>
 
-# BookNfix (ServiceAI)
+# BookNfix
 ### Agentic Service Provider Matching & Booking Platform
 
 <br/>
