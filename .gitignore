@@ -32,3 +32,5 @@ serviceai-backend/*.db
 venv/
 env/
 .venv/
+
+*.md
