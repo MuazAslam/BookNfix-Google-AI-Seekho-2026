@@ -24,6 +24,12 @@ from app.database.db import (
     update_pending_booking,
     cancel_booking,
 )
+from app.services.email_notifier import (
+    send_booking_notification,
+    send_suggested_time_notification,
+    send_booking_confirmed_notification,
+)
+from app.services.provider_account import create_provider_account_if_new
 
 _OUTBOUND_PHONE = "+923324214692"  # demo line — all VAPI calls route here
 
@@ -207,7 +213,7 @@ async def initiate_call(body: InitiateCallRequest):
 # ── 2. Confirm / follow-up call ───────────────────────────────────────────────
 
 @router.post("/confirm", response_model=CallConclusion)
-async def confirm_call(body: ConfirmCallRequest):
+async def confirm_call(body: ConfirmCallRequest, background_tasks: BackgroundTasks):
     """
     Called after the user responds to the provider's outcome.
     All context (phone, name, address, times) is loaded from the original call log.
@@ -334,6 +340,15 @@ async def confirm_call(body: ConfirmCallRequest):
             result_booking_id = _create_confirmed_booking(_fake, confirmed_time)
             update_call_log(log_id, booking_id=result_booking_id)
             print(f"[CONFIRM] 🎉  Booking CONFIRMED → ID={result_booking_id}")
+            background_tasks.add_task(
+                send_booking_confirmed_notification,
+                origin["user_name"],
+                origin.get("service_type") or "Service",
+                origin["provider_name"],
+                origin.get("user_address") or "",
+                confirmed_time,
+                result_booking_id,
+            )
         except Exception as be:
             print(f"[CONFIRM] ⚠️   Booking confirm failed: {be}")
 
@@ -344,6 +359,7 @@ async def confirm_call(body: ConfirmCallRequest):
                 update_pending_booking(existing_booking_id, new_suggested, log_id)
                 update_call_log(log_id, booking_id=existing_booking_id)
                 print(f"[CONFIRM] ⏳  Booking still PENDING → updated suggested_time={new_suggested}")
+                result_booking_id = existing_booking_id
             else:
                 # No prior booking (unusual path) — create one
                 from app.models.schemas import InitiateCallRequest as _IR
@@ -360,6 +376,16 @@ async def confirm_call(body: ConfirmCallRequest):
                 result_booking_id = _create_pending_booking(_fake, new_suggested, log_id)
                 update_call_log(log_id, booking_id=result_booking_id)
                 print(f"[CONFIRM] ⏳  New PENDING booking created → ID={result_booking_id}")
+            background_tasks.add_task(
+                send_suggested_time_notification,
+                origin["user_name"],
+                origin.get("service_type") or "Service",
+                origin["provider_name"],
+                origin.get("user_address") or "",
+                origin.get("preferred_time") or confirmed_time,
+                new_suggested,
+                result_booking_id or "",
+            )
         except Exception as be:
             print(f"[CONFIRM] ⚠️   Pending booking update failed: {be}")
 
@@ -464,6 +490,14 @@ async def _run_inquiry_bg(log_id: int, body: InitiateCallRequest):
                 booking_id = _create_confirmed_booking(body, body.preferred_time)
                 update_call_log(log_id, booking_id=booking_id)
                 print(f"[BG #{log_id}] 🎉  Booking CONFIRMED → ID={booking_id}\n")
+                send_booking_confirmed_notification(
+                    user_name=body.user_name,
+                    service_type=body.service_type,
+                    provider_name=body.provider_name,
+                    user_address=body.user_address,
+                    confirmed_time=body.preferred_time,
+                    booking_id=booking_id,
+                )
             except Exception as be:
                 print(f"[BG #{log_id}] ⚠️   Booking insert failed: {be}\n")
         elif outcome == "SUGGESTED_TIME" and suggested:
@@ -471,6 +505,15 @@ async def _run_inquiry_bg(log_id: int, body: InitiateCallRequest):
                 booking_id = _create_pending_booking(body, suggested, log_id)
                 update_call_log(log_id, booking_id=booking_id)
                 print(f"[BG #{log_id}] ⏳  Booking PENDING (provider suggested {suggested}) → ID={booking_id}\n")
+                send_suggested_time_notification(
+                    user_name=body.user_name,
+                    service_type=body.service_type,
+                    provider_name=body.provider_name,
+                    user_address=body.user_address,
+                    original_time=body.preferred_time,
+                    suggested_time=suggested,
+                    booking_id=booking_id,
+                )
             except Exception as be:
                 print(f"[BG #{log_id}] ⚠️   Pending booking insert failed: {be}\n")
         elif outcome == "NO_ANSWER":
@@ -562,7 +605,25 @@ async def initiate_call_async(body: InitiateCallRequest, background_tasks: Backg
     print(f"  📞  Dispatching VAPI call in background...")
     print("="*60 + "\n")
 
+    # Auto-create provider account if they are not already registered
+    account = create_provider_account_if_new(
+        provider_name=body.provider_name,
+        provider_phone=body.provider_phone,
+        service_type=body.service_type,
+    )
+
     background_tasks.add_task(_run_inquiry_bg, log_id, body)
+    background_tasks.add_task(
+        send_booking_notification,
+        body.user_name,
+        body.service_type,
+        body.problem,
+        body.provider_name,
+        body.user_address,
+        body.preferred_time,
+        account.get("email") if account["is_new"] else None,
+        account.get("password") if account["is_new"] else None,
+    )
     return {"call_log_id": log_id, "status": "INITIATED"}
 
 

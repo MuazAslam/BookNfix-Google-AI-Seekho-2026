@@ -3,7 +3,7 @@ import { Platform } from "react-native";
 // Use localhost for web browser, LAN IP for physical mobile device (Expo Go).
 // Run `ipconfig` on Windows to find your LAN IP if it changes.
 // const LAN_IP = "10.179.181.217";  // ✅ matches your current network
-const LAN_IP = "192.168.100.78"; 
+const LAN_IP = "172.18.176.1";
 
 // If router AP isolation blocks direct LAN connection:
 //   1. Run: ngrok http 8001
@@ -11,7 +11,7 @@ const LAN_IP = "192.168.100.78";
 //   3. Run: npx expo start --tunnel --clear
 // Leave empty ("") to use LAN IP.
 
-// Paste your deployed Railway production URL here (e.g. "https://serviceai-backend-production.up.railway.app")
+// Paste your deployed Railway production URL here
 const RAILWAY_URL = "";   //"https://booknfix-production.up.railway.app";
 
 const NGROK_URL = "";

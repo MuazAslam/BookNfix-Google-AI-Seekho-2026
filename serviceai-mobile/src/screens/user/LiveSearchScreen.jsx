@@ -12,6 +12,7 @@ import { COLORS, SERVICE_CATEGORIES } from "../../constants/theme";
 import { useAuth } from "../../contexts/AuthContext";
 import { toE164 } from "../../components/BookingModal";
 import BrandLogo from "../../components/BrandLogo";
+import { useLanguage } from "../../contexts/LanguageContext";
 
 let Location = null;
 try { Location = require("expo-location"); } catch (_) { }
@@ -1673,7 +1674,8 @@ function BookingPendingOverlay({ biz, service, locationText, issueText, onDone, 
 
 // ── Service picker ────────────────────────────────────────────────────────────
 // ── Service picker ────────────────────────────────────────────────────────────
-function ServicePicker({ onStart, onBack, locationText, setLocationText, gpsLoading, selected, setSelected, issueText, setIssueText }) {
+function ServicePicker({ onStart, onBack, locationText, setLocationText, gpsLoading, selected, setSelected, issueText, setIssueText, customService, setCustomService }) {
+  const { t, locale } = useLanguage();
   const spinValue = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
@@ -1717,8 +1719,8 @@ function ServicePicker({ onStart, onBack, locationText, setLocationText, gpsLoad
             <Ionicons name="chevron-back" size={20} color={COLORS.textSecondary} />
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
-            <Text style={s.pickTitle}>Live Search Radar</Text>
-            <Text style={s.pickSub}>Real providers · Google Maps data</Text>
+            <Text style={s.pickTitle}>{t("liveSearchRadar")}</Text>
+            <Text style={s.pickSub}>{t("realProviders")}</Text>
           </View>
           <View style={s.liveChipWrap}>
             <View style={s.liveDotGreen} />
@@ -1727,7 +1729,7 @@ function ServicePicker({ onStart, onBack, locationText, setLocationText, gpsLoad
         </View>
 
         <ScrollView contentContainerStyle={s.pickScroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-          <Text style={s.sectionLabel}>SELECT A SERVICE CATEGORY</Text>
+          <Text style={s.sectionLabel}>{t("selectCategory")}</Text>
           <View style={s.catGrid}>
             {SERVICE_CATEGORIES.slice(0, 12).map(cat => (
               <Pressable
@@ -1748,8 +1750,39 @@ function ServicePicker({ onStart, onBack, locationText, setLocationText, gpsLoad
             ))}
           </View>
 
+          {/* Custom service input when "Other" is selected */}
+          {selected === "Other" && (
+            <View style={{
+              flexDirection: "row",
+              alignItems: "center",
+              backgroundColor: "rgba(18, 18, 38, 0.88)",
+              borderRadius: 14,
+              borderWidth: 1,
+              borderColor: "rgba(139, 92, 246, 0.25)",
+              paddingHorizontal: 12,
+              height: 48,
+              marginTop: 4,
+              marginBottom: 16,
+            }}>
+              <Ionicons name="pencil-outline" size={16} color="#A78BFA" style={{ marginLeft: 4 }} />
+              <TextInput
+                style={{
+                  flex: 1,
+                  color: "#FFFFFF",
+                  fontSize: 13,
+                  paddingHorizontal: 8,
+                  height: "100%",
+                }}
+                value={customService}
+                onChangeText={setCustomService}
+                placeholder="Enter service name (e.g. Physiotherapist, Gardener)"
+                placeholderTextColor="rgba(255, 255, 255, 0.4)"
+              />
+            </View>
+          )}
+
           {/* AI Console Card matching mockup exactly */}
-          <Text style={s.sectionLabel}>AI SEARCH CONSOLE</Text>
+          <Text style={s.sectionLabel}>{t("aiSearchConsole")}</Text>
           <View style={{
             backgroundColor: "rgba(18, 18, 38, 0.88)",
             borderRadius: 24,
@@ -1783,7 +1816,13 @@ function ServicePicker({ onStart, onBack, locationText, setLocationText, gpsLoad
               }}
               value={issueText}
               onChangeText={setIssueText}
-              placeholder={selected ? `Describe your ${selected.toLowerCase()} issue... (e.g. leaking sink)` : "Select a service category and describe your issue here..."}
+              placeholder={
+                selected
+                  ? selected === "Other" && customService
+                    ? locale === "ur" ? `${customService} کے بارے میں اپنا مسئلہ لکھیں...` : `Describe your ${customService.toLowerCase()} issue...`
+                    : locale === "ur" ? `${selected} کے بارے میں اپنا مسئلہ لکھیں...` : `Describe your ${selected.toLowerCase()} issue... (e.g. leaking sink)`
+                  : t("describeIssue")
+              }
               placeholderTextColor="rgba(255,255,255,0.35)"
               multiline
             />
@@ -1825,28 +1864,33 @@ function ServicePicker({ onStart, onBack, locationText, setLocationText, gpsLoad
               </View>
 
               {/* Glowing gradient Ask AI Button */}
-              <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
-                <TouchableOpacity
-                  style={{ borderRadius: 14, overflow: "hidden", opacity: selected ? 1 : 0.4 }}
-                  onPress={() => selected && onStart()}
-                  activeOpacity={0.8}
-                  disabled={!selected}
-                >
-                  <LinearGradient
-                    colors={["#8B5CF6", "#6366F1"]}
-                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                    style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 18, paddingVertical: 11 }}
-                  >
-                    <Ionicons name="arrow-forward" size={14} color="#FFF" />
-                    <Text style={{ color: "#FFF", fontSize: 14, fontWeight: "800" }}>Ask AI</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-              </Animated.View>
+              {(() => {
+                const isReady = selected && (selected !== "Other" || (customService && customService.trim() !== ""));
+                return (
+                  <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+                    <TouchableOpacity
+                      style={{ borderRadius: 14, overflow: "hidden", opacity: isReady ? 1 : 0.4 }}
+                      onPress={() => isReady && onStart()}
+                      activeOpacity={0.8}
+                      disabled={!isReady}
+                    >
+                      <LinearGradient
+                        colors={["#8B5CF6", "#6366F1"]}
+                        start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                        style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 18, paddingVertical: 11 }}
+                      >
+                        <Ionicons name="arrow-forward" size={14} color="#FFF" />
+                        <Text style={{ color: "#FFF", fontSize: 14, fontWeight: "800" }}>{t("askAi")}</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  </Animated.View>
+                );
+              })()}
             </View>
           </View>
 
           {/* Location details card */}
-          <Text style={s.sectionLabel}>YOUR SEARCH LOCATION</Text>
+          <Text style={s.sectionLabel}>{t("searchLocation")}</Text>
           <View style={s.locRow}>
             <View style={[s.gpsIcon, gpsLoading
               ? { backgroundColor: COLORS.warningGlow, borderColor: COLORS.warning + "55" }
@@ -1869,7 +1913,7 @@ function ServicePicker({ onStart, onBack, locationText, setLocationText, gpsLoad
 
           <View style={s.noteBox}>
             <Ionicons name="information-circle-outline" size={13} color={COLORS.textMuted} />
-            <Text style={s.noteText}>Scans real Google Maps data · Results in 3-8 minutes</Text>
+            <Text style={s.noteText}>{t("scansMaps")}</Text>
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -1879,6 +1923,7 @@ function ServicePicker({ onStart, onBack, locationText, setLocationText, gpsLoad
 
 // ── Main screen ───────────────────────────────────────────────────────────────
 export default function LiveSearchScreen({ navigation }) {
+  const { t, locale } = useLanguage();
   const { width: W, height: H } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const { userProfile } = useAuth();
@@ -1892,6 +1937,7 @@ export default function LiveSearchScreen({ navigation }) {
 
   const [phase, setPhase] = useState("pick");
   const [service, setService] = useState("");
+  const [customService, setCustomService] = useState("");
   const [problemDetails, setProblemDetails] = useState("");
   const [locText, setLocText] = useState("Detecting...");
   const [gpsLoad, setGpsLoad] = useState(true);
@@ -1962,25 +2008,24 @@ export default function LiveSearchScreen({ navigation }) {
     liveCallTimersRef.current.forEach(clearTimeout);
     liveCallTimersRef.current = [];
 
-    // Save context for retries
+    // Save context
     setSavedBookingBiz(biz);
     setSelectedBookingDate(date);
     setSelectedBookingTime(time);
 
     // Reset call modal states
-    setLiveCallLogs([]);
-    setLiveCallStatus("Initializing VoIP...");
-    setLiveCallOutcome("calling");
+    setLiveCallStatus("AI Dispatch Active...");
     setShowLiveCallModal(true);
 
+    const actualService = service === "Other" ? customService : service;
     // Trigger background API VoIP phone call immediately
     API.initiateCall({
       provider_phone: toE164(biz?.phone),
       provider_name: biz?.name || "Provider",
       user_name: userProfile?.name || "Customer",
       user_address: locText || biz?.address || "",
-      problem: problemDetails || service || "Service required",
-      service_type: service || "Service",
+      problem: problemDetails || actualService || "Service required",
+      service_type: actualService || "Service",
       preferred_time: time ? `${date} at ${time}` : date,
       language: "ur",
       user_phone: userProfile?.phone || null,
@@ -1988,27 +2033,12 @@ export default function LiveSearchScreen({ navigation }) {
       user_id: userProfile?.uid || null,
     }).catch(() => { });
 
-    const steps = [
-      { t: 0, status: "VoIP Gateway Connecting...", log: "📡 Connecting to BookNFix secure gateway..." },
-      { t: 800, status: "Initializing AI Agent...", log: "🤖 Dispatch Agent 4 initialized. Status: Online" },
-      { t: 1800, status: `Dialing ${biz?.name || "Provider"}...`, log: `📞 Dialing provider ${biz?.name || "Provider"} at ${biz?.phone || "+92 300-1234567"}...` },
-      { t: 3000, status: "Ringing...", log: "🔔 Connection established. Line ringing..." },
-      { t: 5000, status: "Ringing (No Answer)...", log: `⏳ Ringing timed out. No response from ${biz?.name || "Provider"}.` },
-      { t: 6500, status: "Provider Not Available", log: `❌ Dispatch failed: Provider unreachable at this time.` },
-      { t: 7800, status: "Booking Marked Pending", log: "📝 Request saved as PENDING. You can try dispatching again." },
-    ];
-
-    // Trigger sequential updates
-    steps.forEach((step) => {
-      const tId = setTimeout(() => {
-        setLiveCallStatus(step.status);
-        setLiveCallLogs((prev) => [...prev, step.log]);
-        if (step.status === "Booking Marked Pending") {
-          setLiveCallOutcome("failed");
-        }
-      }, step.t);
-      liveCallTimersRef.current.push(tId);
-    });
+    // Auto-navigate to dashboard after 3.5 seconds
+    const tId = setTimeout(() => {
+      setShowLiveCallModal(false);
+      navigation.navigate("UserTabs", { screen: "HomeTab" });
+    }, 3500);
+    liveCallTimersRef.current.push(tId);
   };
 
   const sweepAnim = useRef(new Animated.Value(0)).current;
@@ -2118,7 +2148,8 @@ export default function LiveSearchScreen({ navigation }) {
     }
 
     try {
-      const result = await API.findBusiness(service.trim(), locText.trim());
+      const actualService = service === "Other" ? customService : service;
+      const result = await API.findBusiness(actualService.trim(), locText.trim());
       const biz = result?.businesses || [];
       setBiz(biz);
       setReport(result?.report || null);
@@ -2162,6 +2193,8 @@ export default function LiveSearchScreen({ navigation }) {
         setSelected={setService}
         issueText={problemDetails}
         setIssueText={setProblemDetails}
+        customService={customService}
+        setCustomService={setCustomService}
       />
     );
   }
@@ -2260,7 +2293,7 @@ export default function LiveSearchScreen({ navigation }) {
             <Ionicons name="chevron-back" size={14} color={COLORS.text} />
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
-            <Text style={s.glassTitle} numberOfLines={1}>{service} · {locText}</Text>
+            <Text style={s.glassTitle} numberOfLines={1}>{service === "Other" ? customService : service} · {locText}</Text>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
               {phase === "scanning"
                 ? <><View style={s.liveDotGreen} /><Text style={s.glassSub}>Scanning radar area...</Text></>
@@ -2292,7 +2325,7 @@ export default function LiveSearchScreen({ navigation }) {
       {bookingBiz && (
         <BookingPendingOverlay
           biz={bookingBiz}
-          service={service}
+          service={service === "Other" ? customService : service}
           locationText={locText}
           issueText={problemDetails}
           onBack={() => setBookingBiz(null)}
@@ -2406,125 +2439,70 @@ export default function LiveSearchScreen({ navigation }) {
             {/* Top brand header */}
             <View style={s.modalHeader}>
               <BrandLogo size={24} />
-              <View style={[s.dispatchPill, liveCallOutcome === "failed" && { backgroundColor: "#F59E0B22", borderColor: "#F59E0B44" }]}>
-                <View style={[s.dispatchDot, liveCallOutcome === "failed" && { backgroundColor: "#F59E0B" }]} />
-                <Text style={[s.dispatchPillText, liveCallOutcome === "failed" && { color: "#F59E0B" }]}>
-                  {liveCallOutcome === "failed" ? "DISPATCH PENDING" : "AI DISPATCH ACTIVE"}
+              <View style={s.dispatchPill}>
+                <View style={s.dispatchDot} />
+                <Text style={s.dispatchPillText}>AI DISPATCH ACTIVE</Text>
+              </View>
+            </View>
+
+            {/* Premium minimal informing card */}
+            <View style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 24, gap: 32 }}>
+              
+              {/* Agent Avatar Pulsing Circle */}
+              <View style={{ width: 120, height: 120, justifyContent: "center", alignItems: "center", position: "relative" }}>
+                <Animated.View style={[s.pulseRing, { transform: [{ scale: livePulseAnim }], borderColor: COLORS.primary, width: 120, height: 120, borderRadius: 60 }]} />
+                <LinearGradient
+                  colors={["#8B5CF6", "#6C63FF"]}
+                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                  style={{ width: 100, height: 100, borderRadius: 50, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "rgba(255,255,255,0.15)" }}
+                >
+                  <Ionicons name="sparkles" size={48} color="#fff" />
+                </LinearGradient>
+              </View>
+
+              {/* Informing Text Header */}
+              <View style={{ alignItems: "center", gap: 12 }}>
+                <Text style={{ fontSize: 24, fontWeight: "900", color: "#FFFFFF", letterSpacing: -0.5 }}>{t("aiAgentDispatching")}</Text>
+                <Text style={{ fontSize: 13, color: COLORS.textMuted, fontWeight: "600", textTransform: "uppercase", letterSpacing: 1.5 }}>
+                  {t("bookingInitiated")}
+                </Text>
+              </View>
+
+              {/* Beautiful custom card matching the mockup exactly */}
+              <View style={{
+                backgroundColor: "rgba(18, 18, 38, 0.65)",
+                borderRadius: 20,
+                borderWidth: 1,
+                borderColor: "rgba(139, 92, 246, 0.2)",
+                padding: 20,
+                width: "100%",
+                flexDirection: "row",
+                gap: 14,
+                alignItems: "center"
+              }}>
+                <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: "rgba(16, 217, 160, 0.15)", alignItems: "center", justifyContent: "center" }}>
+                  <Ionicons name="sparkles-outline" size={18} color="#10D9A0" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 13, color: "rgba(255,255,255,0.85)", lineHeight: 20, fontWeight: "500" }}>
+                    {t("aiAgentCalling", { name: savedBookingBiz?.name || (locale === "ur" ? "سروس فراہم کنندہ" : "the provider") })}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Beautiful infinite loop progress bar or activity indicator representing redirect */}
+              <View style={{ width: "100%", alignItems: "center", gap: 16, marginTop: 12 }}>
+                <ActivityIndicator size="small" color={COLORS.primary} />
+                <Text style={{ fontSize: 12, color: COLORS.textSecondary, fontWeight: "600" }}>
+                  {t("navigatingDashboard")}
                 </Text>
               </View>
             </View>
 
-            {/* Calling connection graphic */}
-            <View style={s.callingVisualContainer}>
-              <View style={s.callingRow}>
-                {/* Agent Avatar Box */}
-                <View style={s.avatarWrapper}>
-                  <Animated.View style={[s.pulseRing, { transform: [{ scale: livePulseAnim }], borderColor: liveCallOutcome === "failed" ? "#F59E0B" : COLORS.primary }]} />
-                  <LinearGradient colors={liveCallOutcome === "failed" ? ["#F59E0B", "#D97706"] : ["#8B5CF6", "#6C63FF"]} style={s.callAvatar}>
-                    <Ionicons name={liveCallOutcome === "failed" ? "alert-circle" : "sparkles"} size={26} color="#fff" />
-                  </LinearGradient>
-                  <Text style={s.avatarLabel}>AI Agent 4</Text>
-                </View>
-
-                {/* Connecting glowing dashed line */}
-                <View style={s.connectingLineContainer}>
-                  <Ionicons name={liveCallOutcome === "failed" ? "close-circle" : "radio-outline"} size={20} color={liveCallOutcome === "failed" ? "#F59E0B" : "#00BCD4"} style={s.pulsingRadio} />
-                  <View style={[s.dashedLine, liveCallOutcome === "failed" && { borderColor: "#F59E0B" }]} />
-                </View>
-
-                {/* Provider Avatar Box */}
-                <View style={s.avatarWrapper}>
-                  <Animated.View style={[s.pulseRing, { transform: [{ scale: livePulseAnim }], borderColor: liveCallOutcome === "failed" ? "#F59E0B" : "#E91E8C" }]} />
-                  <LinearGradient colors={liveCallOutcome === "failed" ? ["#F59E0B", "#D97706"] : ["#E91E8C", "#FF4081"]} style={s.callAvatar}>
-                    <Text style={s.callAvatarText}>{savedBookingBiz?.name ? savedBookingBiz.name[0] : "P"}</Text>
-                  </LinearGradient>
-                  <Text style={s.avatarLabel}>{savedBookingBiz?.name ? savedBookingBiz.name.split(" ")[0] : "Provider"}</Text>
-                </View>
-              </View>
-
-              {liveCallOutcome === "failed" ? (
-                /* Dynamic Failed Outcome Warning Card & Interactive Retry Buttons */
-                <View style={s.outcomeCardContainer}>
-                  <View style={s.outcomeBox}>
-                    <Ionicons name="sparkles-outline" size={24} color="#10D9A0" style={{ marginTop: 2 }} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={s.outcomeTitle}>AI Agent Dispatching</Text>
-                      <Text style={s.outcomeSub}>
-                        Our AI Agent will be calling {savedBookingBiz?.name || "the provider"} to confirm your booking and will inform you later!
-                      </Text>
-                    </View>
-                  </View>
-                  
-                  <View style={s.outcomeButtonsRow}>
-                    <TouchableOpacity 
-                      activeOpacity={0.8} 
-                      style={s.retryBtn} 
-                      onPress={() => startLiveCall(savedBookingBiz, selectedBookingDate, selectedBookingTime)}
-                    >
-                      <Ionicons name="refresh" size={15} color="#fff" />
-                      <Text style={s.retryBtnText}>Retry AI Call</Text>
-                    </TouchableOpacity>
-                    
-                    <TouchableOpacity 
-                      activeOpacity={0.8} 
-                      style={s.closeOutcomeBtn} 
-                      onPress={() => {
-                        setShowLiveCallModal(false);
-                        navigation.navigate("UserTabs", { screen: "BookingHistory" });
-                      }}
-                    >
-                      <Text style={s.closeOutcomeBtnText}>Go to Dashboard</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              ) : (
-                /* Enhanced Waveform Audio Simulation */
-                <View style={s.waveformContainer}>
-                  {liveWaveAnims.map((anim, idx) => (
-                    <Animated.View
-                      key={idx}
-                      style={[
-                        s.waveformBar,
-                        {
-                          transform: [{ scaleY: anim }],
-                          backgroundColor: idx % 2 === 0 ? "#00BCD4" : "#E91E8C",
-                        }
-                      ]}
-                    />
-                  ))}
-                </View>
-              )}
-
-              {/* Status Header */}
-              <Text style={[s.callingStatusText, liveCallOutcome === "failed" && { color: "#F59E0B" }]}>{liveCallStatus}</Text>
-            </View>
-
-            {/* Transcription Console Logger */}
-            <View style={s.consoleCard}>
-              <View style={s.consoleHeader}>
-                <Ionicons name="terminal-outline" size={14} color="#00BCD4" />
-                <Text style={s.consoleTitle}>REAL-TIME VOICE LOGS</Text>
-              </View>
-              <ScrollView 
-                style={s.consoleLogsScroll}
-                contentContainerStyle={{ gap: 8, paddingBottom: 10 }}
-                ref={(r) => r?.scrollToEnd({ animated: true })}
-              >
-                {liveCallLogs.map((log, idx) => (
-                  <View key={idx} style={s.logRow}>
-                    <Text style={s.logText}>{log}</Text>
-                  </View>
-                ))}
-                {liveCallLogs.length === 0 && (
-                  <Text style={s.placeholderLogText}>Starting call connection logs...</Text>
-                )}
-              </ScrollView>
-            </View>
-
             {/* Bottom secure footnote */}
-            <View style={s.secureFooter}>
+            <View style={[s.secureFooter, { marginBottom: 16 }]}>
               <Ionicons name="lock-closed" size={12} color="#0CB888" />
-              <Text style={s.secureFooterText}>Secure encrypted VoIP conversation</Text>
+              <Text style={s.secureFooterText}>Encrypted secure system dispatch</Text>
             </View>
 
           </SafeAreaView>

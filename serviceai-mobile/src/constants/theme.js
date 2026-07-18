@@ -1,14 +1,14 @@
 export const COLORS = {
   // Core backgrounds
-  bg: "#070710",
-  surface: "#0D0D1C",
-  card: "#111127",
-  cardAlt: "#161630",
-  elevated: "#1A1A38",
+  bg: "#0B0C1E",
+  surface: "#12132D",
+  card: "#191A3C",
+  cardAlt: "#20224D",
+  elevated: "#282A5F",
 
   // Borders
-  border: "#1E1E40",
-  borderLight: "#2A2A55",
+  border: "#2E306E",
+  borderLight: "#3B3E8C",
   borderGlow: "rgba(108,99,255,0.3)",
 
   // Brand — Indigo
@@ -49,11 +49,11 @@ export const COLORS = {
   agent5: "#A78BFA",
 
   // Text
-  text: "#EEEEFF",
-  textSecondary: "#A6A6CC",
-  textMuted: "#7878A8",
-  textDim: "#404068",
-  textInverse: "#070710",
+  text: "#FFFFFF",
+  textSecondary: "#C2C4EC",
+  textMuted: "#9B9DC8",
+  textDim: "#61639C",
+  textInverse: "#0B0C1E",
   textCode: "#A78BFA",
 
   // Gradients (passed to LinearGradient)
@@ -152,7 +152,7 @@ export const SERVICE_CATEGORIES = [
   { key: "mechanic",      label: "Mechanic",    icon: "🔩", color: "#64748B" },
   { key: "pest_control",  label: "Pest Control",icon: "🐛", color: "#84CC16" },
   { key: "cook",          label: "Cook/Chef",   icon: "👨‍🍳", color: "#F97316" },
-  { key: "security_guard",label: "Security",    icon: "🛡️", color: "#6366F1" },
+  { key: "other",          label: "Other",       icon: "✏️", color: "#6366F1" },
 ];
 
 export const CATEGORIES = SERVICE_CATEGORIES;

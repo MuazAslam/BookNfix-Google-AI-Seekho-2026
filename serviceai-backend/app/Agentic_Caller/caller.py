@@ -1,6 +1,7 @@
 import os
 import asyncio
 import httpx
+from groq import AsyncGroq
 
 VAPI_API_KEY = os.getenv("VAPI_API_KEY", "")
 VAPI_PHONE_NUMBER_ID = os.getenv("VAPI_PHONE_NUMBER_ID", "")
@@ -11,6 +12,40 @@ VAPI_BASE_URL = "https://api.vapi.ai"
 _POLL_INTERVAL = 5       # seconds between status checks
 _MAX_POLL_SECONDS = 300  # give up after 5 minutes
 _TERMINAL = {"ended", "failed", "no-answer", "busy"}
+
+
+# ── Roman Urdu → Urdu script translator ──────────────────────────────────────
+
+async def _to_urdu_script(text: str) -> str:
+    """Translate Roman Urdu / mixed text to proper Urdu script using Groq.
+    Falls back to the original text if translation fails."""
+    if not text or not text.strip():
+        return text
+    try:
+        client = AsyncGroq(api_key=os.getenv("GROQ_API_KEY", ""))
+        resp = await client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a Roman Urdu to Urdu script translator. "
+                        "The user will send text that may be in Roman Urdu (Urdu written in Latin letters), "
+                        "proper Urdu script, English, or a mix. "
+                        "Translate everything to proper Urdu script (Nastaliq). "
+                        "Return ONLY the translated Urdu text — no explanations, no extra words."
+                    ),
+                },
+                {"role": "user", "content": text},
+            ],
+            max_tokens=200,
+            temperature=0.1,
+        )
+        translated = resp.choices[0].message.content.strip()
+        return translated if translated else text
+    except Exception as e:
+        print(f"[caller] Urdu translation failed ({e}), using original text")
+        return text
 
 
 # ── Prompt builders ───────────────────────────────────────────────────────────
@@ -167,6 +202,9 @@ async def call_provider_inquiry(
     language: str = "en",
 ) -> tuple[str, str, str]:
     """Place an inquiry call to a service provider. Returns (call_id, transcript, status)."""
+    if language == "ur":
+        problem      = await _to_urdu_script(problem)
+        service_type = await _to_urdu_script(service_type)
     first_msg = _inquiry_first_message(user_name, user_address, problem, service_type, preferred_time, provider_name, language)
     call = await create_outbound_call(provider_phone, provider_name, first_msg)
     call_id = call["id"]

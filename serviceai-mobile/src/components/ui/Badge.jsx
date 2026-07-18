@@ -23,14 +23,17 @@ export default function Badge({ label, variant = "primary", icon, size = "sm", s
   );
 }
 
+import { useLanguage } from "../../contexts/LanguageContext";
+
 export function StatusBadge({ status }) {
+  const { t } = useLanguage();
   const map = {
-    CONFIRMED: { label: "Confirmed", variant: "success", icon: "✓" },
-    PENDING: { label: "Pending", variant: "warning", icon: "⏳" },
-    CANCELLED: { label: "Cancelled", variant: "danger", icon: "✕" },
-    REJECTED: { label: "Rejected", variant: "danger", icon: "✕" },
-    IN_PROGRESS: { label: "In Progress", variant: "info", icon: "▶" },
-    COMPLETED: { label: "Completed", variant: "provider", icon: "★" },
+    CONFIRMED: { label: t("confirmed"), variant: "success", icon: "✓" },
+    PENDING: { label: t("pending"), variant: "warning", icon: "⏳" },
+    CANCELLED: { label: t("cancelled"), variant: "danger", icon: "✕" },
+    REJECTED: { label: t("cancelled"), variant: "danger", icon: "✕" },
+    IN_PROGRESS: { label: t("inProgress"), variant: "info", icon: "▶" },
+    COMPLETED: { label: t("completed"), variant: "provider", icon: "★" },
   };
   const cfg = map[status] || { label: status, variant: "neutral", icon: null };
   return <Badge {...cfg} />;

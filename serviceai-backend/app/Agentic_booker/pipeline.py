@@ -27,10 +27,41 @@ import sys
 import time
 from pathlib import Path
 
-
 import requests
 from dotenv import load_dotenv
 from groq import Groq
+
+MOCK_SCRAPER = False
+
+_PROVIDERS_JSON = Path(__file__).resolve().parent.parent.parent / "data" / "providers.json"
+
+
+def _load_mock_businesses(service: str, address: str, limit: int = 5) -> list:
+    """Return pre-made results from providers.json in pipeline business format."""
+    try:
+        with open(_PROVIDERS_JSON, encoding="utf-8") as f:
+            data = json.load(f)
+        providers = data.get("providers", [])
+        svc = service.lower()
+        filtered = [p for p in providers if svc in p.get("category", "").lower()]
+        if not filtered:
+            filtered = providers
+        return [
+            {
+                "name":         p.get("name", "Unknown"),
+                "rating":       str(p.get("rating", "")),
+                "review_count": str(p.get("review_count", "")),
+                "address":      f"{p.get('area', '')}, {p.get('city', '')}",
+                "phone":        p.get("phone", ""),
+                "website":      "",
+                "emails":       [],
+                "reviews":      [],
+            }
+            for p in filtered[:limit]
+        ]
+    except Exception as e:
+        print(f"[mock] Failed to load providers.json: {e}")
+        return []
 
 # Load .env from serviceai-backend root (3 levels up from this file)
 load_dotenv(Path(__file__).resolve().parent.parent.parent / ".env")
@@ -367,15 +398,20 @@ def run_pipeline(
         messages.append(msg)
 
         # ── 2. Run the scraper ─────────────────────────────────────────────────
-        print("[pipeline] Running scraper (this may take a few minutes)...")
-        businesses = _scraper.scrape(
-            service=svc,
-            location=addr,
-            max_results=max_results,
-            max_reviews=max_reviews,
-            out_dir=out_dir,
-            headless=headless,
-        )
+        if MOCK_SCRAPER:
+            # TODO: re-enable Chrome scraper when ready — remove this block
+            print("[mock] Returning pre-made results instantly (Chrome scraper disabled)")
+            businesses = _load_mock_businesses(svc, addr, max_results)
+        else:
+            print("[pipeline] Running scraper (this may take a few minutes)...")
+            businesses = _scraper.scrape(
+                service=svc,
+                location=addr,
+                max_results=max_results,
+                max_reviews=max_reviews,
+                out_dir=out_dir,
+                headless=headless,
+            )
 
         if not businesses:
             err = "[!] Scraper returned no businesses. Try without --headless."
@@ -386,8 +422,9 @@ def run_pipeline(
             })
             raise RuntimeError(err)
 
-        txt_path = _scraper.save_txt(svc, addr, businesses, out_dir)
-        _save_json(svc, addr, businesses, out_dir)
+        txt_path = _scraper.save_txt(svc, addr, businesses, out_dir) if not MOCK_SCRAPER else ""
+        if not MOCK_SCRAPER:
+            _save_json(svc, addr, businesses, out_dir)
         print(f"[pipeline] Scraped {len(businesses)} businesses. Text file: {txt_path}")
 
         if txt_path and os.path.exists(txt_path):

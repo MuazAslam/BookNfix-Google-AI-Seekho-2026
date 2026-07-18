@@ -25,6 +25,10 @@ class ConnectionManager:
     async def connect(self, websocket: WebSocket, token: Optional[str]) -> Optional[str]:
         user_id = await self._authenticate(token)
         if not user_id:
+            # Must accept the WebSocket upgrade before sending a close frame.
+            # Calling close() before accept() causes Starlette to reject the
+            # HTTP handshake with 403 instead of a proper WS close code.
+            await websocket.accept()
             await websocket.close(code=4001, reason="Unauthorized")
             return None
 

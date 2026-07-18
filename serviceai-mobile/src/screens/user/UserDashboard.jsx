@@ -11,6 +11,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { API } from "../../services/api";
 import { COLORS, RADIUS, SHADOWS } from "../../constants/theme";
 import { Avatar, StatusBadge, Pill, GlassCard, SpringIn, LiveDot } from "../../components/ui/SharedUI";
+import { useLanguage } from "../../contexts/LanguageContext";
 
 const PENDING_CALL_KEY = "serviceai_pending_call";
 
@@ -139,6 +140,7 @@ const QUICK_QUERIES = [
 
 export default function UserDashboard({ navigation }) {
   const { userProfile } = useAuth();
+  const { t, locale } = useLanguage();
   const [bookings, setBookings] = useState([]);
   const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -148,7 +150,7 @@ export default function UserDashboard({ navigation }) {
 
   const name = userProfile?.name?.split(" ")[0] || "there";
   const hour = new Date().getHours();
-  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  const greeting = hour < 12 ? t("goodMorning") : hour < 17 ? t("goodAfternoon") : t("goodEvening");
 
   const fetchData = useCallback(async () => {
     try {
@@ -354,11 +356,11 @@ export default function UserDashboard({ navigation }) {
                   icon={todayBookingsCount > 0 ? "trending-up-outline" : "ticket-outline"} 
                   size="sm"
                 >
-                  {todayBookingsCount > 0 ? `+${todayBookingsCount} TODAY` : "ACTIVE USER"}
+                  {todayBookingsCount > 0 ? `+${todayBookingsCount} ${locale === "ur" ? "آج" : "TODAY"}` : t("activeUser")}
                 </Pill>
                 
                 <AnimatedCounter target={totalBookingsCount} color={COLORS.text} />
-                <Text style={styles.bentoLabel}>Total bookings placed</Text>
+                <Text style={styles.bentoLabel}>{t("totalBookings")}</Text>
                 
                 <BookingChart data={weeklyTrend} maxVal={maxTrendCount} />
               </View>
@@ -376,7 +378,7 @@ export default function UserDashboard({ navigation }) {
                   <Text style={[styles.counterVal, { color: COLORS.text, fontSize: 20, marginTop: 8 }]}>
                     {pendingBookingsCount}
                   </Text>
-                  <Text style={styles.bentoLabel}>Pending status</Text>
+                  <Text style={styles.bentoLabel}>{t("pendingStatus")}</Text>
                 </View>
 
                 {/* Today's Bookings Card */}
@@ -391,7 +393,7 @@ export default function UserDashboard({ navigation }) {
                   <Text style={[styles.counterVal, { color: COLORS.text, fontSize: 20, marginTop: 8 }]}>
                     {todayBookingsCount}
                   </Text>
-                  <Text style={styles.bentoLabel}>Today's list</Text>
+                  <Text style={styles.bentoLabel}>{t("todaysList")}</Text>
                 </View>
               </View>
             </View>
@@ -417,8 +419,8 @@ export default function UserDashboard({ navigation }) {
                   <Ionicons name="compass-outline" size={20} color={COLORS.violet} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 14, fontWeight: "800", color: COLORS.text }}>Browse Providers</Text>
-                  <Text style={{ fontSize: 12, color: COLORS.textMuted }}>Search, filter & discover top-rated services</Text>
+                  <Text style={{ fontSize: 14, fontWeight: "800", color: COLORS.text }}>{t("browseProviders")}</Text>
+                  <Text style={{ fontSize: 12, color: COLORS.textMuted }}>{t("discoverTop")}</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={16} color={COLORS.textMuted} />
               </TouchableOpacity>
@@ -445,9 +447,9 @@ export default function UserDashboard({ navigation }) {
                     <View style={{ flex: 1 }}>
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                         <Ionicons name="wifi-outline" size={14} color={COLORS.text} style={{ opacity: 0.9 }} />
-                        <Text style={styles.searchTitle}>AI Agentic Service Providers</Text>
+                        <Text style={styles.searchTitle}>{t("aiAgentic")}</Text>
                       </View>
-                      <Text style={styles.searchSub}>Real Time Google Business Radar</Text>
+                      <Text style={styles.searchSub}>{t("realTimeRadar")}</Text>
                     </View>
                     <LiveDot color={COLORS.success} />
                     <Ionicons name="chevron-forward" size={16} color={COLORS.textMuted} style={{ marginLeft: 6 }} />
@@ -462,7 +464,7 @@ export default function UserDashboard({ navigation }) {
             const pending = bookings.filter(b => b.status === "PENDING" || b.status === "pending");
             return (
               <>
-                <Text style={styles.sectionLabel}>PENDING BOOKINGS</Text>
+                <Text style={styles.sectionLabel}>{t("pendingBookings")}</Text>
                 <View style={[styles.px, { gap: 10 }]}>
                   {pending.length === 0 ? (
                     <View style={styles.emptyPendingCard}>
@@ -474,9 +476,11 @@ export default function UserDashboard({ navigation }) {
                         <Ionicons name="time-outline" size={20} color={COLORS.primary} />
                       </View>
                       <View style={{ flex: 1, gap: 3 }}>
-                        <Text style={styles.emptyPendingTitle}>All dispatches cleared</Text>
+                        <Text style={styles.emptyPendingTitle}>{t("allClear")}</Text>
                         <Text style={styles.emptyPendingSub}>
-                          Active bookings and real-time agent status logs will stream here when placed.
+                          {locale === "ur" 
+                            ? "بکنگ کے فعال ہونے کے بعد ریئل ٹائم اسٹیٹس اپ ڈیٹس یہاں دکھائی دیں گی۔"
+                            : "Active bookings and real-time agent status logs will stream here when placed."}
                         </Text>
                       </View>
                     </View>
@@ -517,7 +521,7 @@ export default function UserDashboard({ navigation }) {
           })()}
 
           {/* Quick queries list */}
-          <Text style={styles.sectionLabel}>TRY ASKING</Text>
+          <Text style={styles.sectionLabel}>{t("tryAsking")}</Text>
           <View style={[styles.px, { gap: 8, paddingBottom: 24 }]}>
             {QUICK_QUERIES.map((q, i) => (
               <SpringIn key={i} delay={400 + i * 80}>

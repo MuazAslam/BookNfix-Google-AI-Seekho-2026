@@ -471,16 +471,20 @@ const eb = StyleSheet.create({
 });
 
 // ── Root ──────────────────────────────────────────────────────────────────────
+import { LanguageProvider } from "./src/contexts/LanguageContext";
+
 export default function App() {
   return (
     <ErrorBoundary>
       <SafeAreaProvider>
         <ThemeProvider>
-          <AuthProvider>
-            <WSProvider>
-              <ThemedApp />
-            </WSProvider>
-          </AuthProvider>
+          <LanguageProvider>
+            <AuthProvider>
+              <WSProvider>
+                <ThemedApp />
+              </WSProvider>
+            </AuthProvider>
+          </LanguageProvider>
         </ThemeProvider>
       </SafeAreaProvider>
     </ErrorBoundary>

@@ -3,7 +3,7 @@ import {
   initializeAuth,
   getAuth,
   inMemoryPersistence,
-  browserLocalPersistence,
+  browserSessionPersistence,
 } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { Platform } from "react-native";
@@ -26,10 +26,10 @@ let auth;
 if (getApps().length === 1 && getApps()[0] === app) {
   try {
     auth = initializeAuth(app, {
-      // Web: persist in localStorage so judges don't re-login on refresh
+      // Web: sessionStorage (tab-isolated) so two tabs can hold different accounts
       // Mobile (Expo Go): in-memory — no AsyncStorage needed
       persistence:
-        Platform.OS === "web" ? browserLocalPersistence : inMemoryPersistence,
+        Platform.OS === "web" ? browserSessionPersistence : inMemoryPersistence,
     });
   } catch (e) {
     // Auth already initialized (e.g. hot reload) — just grab the existing instance

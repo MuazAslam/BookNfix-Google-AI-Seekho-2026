@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, Animated,
   ActivityIndicator,
@@ -8,6 +8,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS, FONTS, RADIUS, SHADOWS } from "../../constants/theme";
 import { API } from "../../services/api";
+import { useLanguage } from "../../contexts/LanguageContext";
 
 const CHANNEL_ICONS = {
   SMS: "chatbubble-outline",
@@ -22,6 +23,7 @@ const TRIGGER_COLORS = {
 
 export default function ConfirmationScreen({ route, navigation }) {
   const { confirmation: b, followups, provider } = route.params;
+  const { t, locale } = useLanguage();
 
   // Follow-ups: prefer DB fetch (persistent), fall back to route params
   const [fups, setFups] = useState(followups?.followups || []);
@@ -52,14 +54,48 @@ export default function ConfirmationScreen({ route, navigation }) {
       .finally(() => setFupLoading(false));
   }, []);
 
+  const getServiceLabel = (service) => {
+    if (!service) return "—";
+    if (locale !== "ur") return service;
+    const lower = service.toLowerCase();
+    if (lower.includes("plumber") || lower.includes("plumbing")) return "پلمبر";
+    if (lower.includes("electrician")) return "الیکٹریشن";
+    if (lower.includes("doctor") || lower.includes("hospital")) return "ڈاکٹر";
+    if (lower.includes("carpenter")) return "بڑھئی";
+    if (lower.includes("tutor")) return "ٹیوٹر";
+    if (lower.includes("cleaner")) return "کلینر";
+    if (lower.includes("mechanic")) return "مکینک";
+    if (lower.includes("painter")) return "پینٹر";
+    return service;
+  };
+
+  const getFollowUpMsg = (trigger, originalMsg) => {
+    if (locale !== "ur") return originalMsg;
+    if (trigger === "day_before" || trigger?.toLowerCase().includes("before")) {
+      return `آپ کا سروس فراہم کار راستے میں ہے۔ ${b?.provider_name ? b.provider_name.split(" ")[0] : "فراہم کنندہ"} 8 منٹ کی دوری پر ہے۔`;
+    }
+    if (trigger === "completion" || trigger?.toLowerCase().includes("after") || trigger?.toLowerCase().includes("service")) {
+      return `کیسا رہا؟ ${b?.provider_name || "فراہم کنندہ"} کو ریٹ کرنے کے لیے دبائیں۔`;
+    }
+    return "امید ہے سب ٹھیک رہا ہوگا! کیا آپ کو دوبارہ سروس کی ضرورت ہے؟";
+  };
+
+  const getTriggerLabel = (trigLabel) => {
+    if (locale !== "ur") return trigLabel;
+    if (trigLabel === "10 MIN BEFORE ARRIVAL" || trigLabel?.includes("BEFORE")) return t("tenMinBefore");
+    if (trigLabel === "AFTER SERVICE" || trigLabel?.includes("AFTER")) return t("afterService");
+    if (trigLabel === "3 DAYS LATER" || trigLabel?.includes("LATER")) return t("threeDaysLater");
+    return trigLabel;
+  };
+
   const receiptRows = [
-    ["Service", b.service],
-    ["Provider", b.provider_name],
-    ["Date", b.date],
-    ["Time", b.time_slot],
-    ["Address", b.location_address],
-    ["Contact", b.phone],
-    ["Price Agreed", `₨${b.price_agreed?.toLocaleString()}`],
+    [t("service"), getServiceLabel(b.service)],
+    [t("provider"), b.provider_name],
+    [locale === "ur" ? "تاریخ" : "Date", b.date],
+    [locale === "ur" ? "وقت" : "Time", b.time_slot],
+    [t("address"), b.location_address],
+    [locale === "ur" ? "رابطہ" : "Contact", b.phone],
+    [locale === "ur" ? "طے شدہ قیمت" : "Price Agreed", `₨${b.price_agreed?.toLocaleString()}`],
   ];
 
   return (
@@ -79,16 +115,16 @@ export default function ConfirmationScreen({ route, navigation }) {
               </View>
             </View>
 
-            <Text style={styles.heroTitle}>Booking Confirmed!</Text>
+            <Text style={styles.heroTitle}>{t("bookingConfirmed")}</Text>
 
             <View style={styles.bookingIdBox}>
-              <Text style={styles.bookingIdLabel}>Booking ID</Text>
+              <Text style={styles.bookingIdLabel}>{t("bookingId")}</Text>
               <Text style={styles.bookingId}>{b.booking_id}</Text>
             </View>
 
             <View style={styles.statusRow}>
               <View style={styles.statusDot} />
-              <Text style={styles.statusText}>{b.status}</Text>
+              <Text style={styles.statusText}>{b.status ? t(b.status.toLowerCase()) : t("confirmed")}</Text>
             </View>
           </LinearGradient>
         </Animated.View>
@@ -117,7 +153,7 @@ export default function ConfirmationScreen({ route, navigation }) {
           <View style={styles.receipt}>
             <View style={styles.receiptHeader}>
               <Ionicons name="receipt-outline" size={16} color={COLORS.textSecondary} />
-              <Text style={styles.receiptTitle}>Booking Receipt</Text>
+              <Text style={styles.receiptTitle}>{locale === "ur" ? "بکنگ کی رسید" : "Booking Receipt"}</Text>
             </View>
             {receiptRows.map(([label, value]) => (
               <View key={label} style={styles.receiptRow}>
@@ -131,11 +167,15 @@ export default function ConfirmationScreen({ route, navigation }) {
           <View style={styles.fupSection}>
             <View style={styles.fupHeader}>
               <Ionicons name="notifications" size={16} color={COLORS.primary} />
-              <Text style={styles.fupTitle}>Automated Follow-Ups</Text>
+              <Text style={styles.fupTitle}>{locale === "ur" ? "خودکار فالو اپس" : "Automated Follow-Ups"}</Text>
               {fupLoading && <ActivityIndicator size="small" color={COLORS.primary} style={{ marginLeft: 8 }} />}
             </View>
             <Text style={styles.fupSub}>
-              {fupLoading ? "Loading from database…" : `Agent 5 scheduled ${fups.length} automated messages`}
+              {fupLoading 
+                ? (locale === "ur" ? "ڈیٹا بیس سے لوڈ ہو رہا ہے..." : "Loading from database…") 
+                : (locale === "ur" 
+                    ? `ایجنٹ 5 نے ${fups.length} خودکار پیغامات شیڈول کیے ہیں` 
+                    : `Agent 5 scheduled ${fups.length} automated messages`)}
             </Text>
 
             {fups.map((f, i) => (
@@ -146,16 +186,20 @@ export default function ConfirmationScreen({ route, navigation }) {
                   </View>
                   <View>
                     <Text style={styles.fupChannel}>{f.channel}</Text>
-                    <Text style={styles.fupTrigger}>{f.trigger_label}</Text>
+                    <Text style={styles.fupTrigger}>{getTriggerLabel(f.trigger_label)}</Text>
                   </View>
                 </View>
-                <Text style={styles.fupMessage}>"{f.message}"</Text>
+                <Text style={styles.fupMessage}>"{getFollowUpMsg(f.trigger, f.message)}"</Text>
               </View>
             ))}
 
             <View style={styles.agentBadge}>
               <Ionicons name="sparkles" size={12} color={COLORS.primary} />
-              <Text style={styles.agentBadgeText}>Agent 5 (Follow-Up Planner) · {fups.length} messages scheduled</Text>
+              <Text style={styles.agentBadgeText}>
+                {locale === "ur" 
+                  ? `ایجنٹ 5 (فالو اپ پلانر) · ${fups.length} پیغامات شیڈول ہیں` 
+                  : `Agent 5 (Follow-Up Planner) · ${fups.length} messages scheduled`}
+              </Text>
             </View>
           </View>
 
@@ -166,7 +210,7 @@ export default function ConfirmationScreen({ route, navigation }) {
             activeOpacity={0.85}
           >
             <Ionicons name="receipt-outline" size={18} color="#fff" />
-            <Text style={styles.historyBtnText}>View All Bookings</Text>
+            <Text style={styles.historyBtnText}>{locale === "ur" ? "تمام بکنگز دیکھیں" : "View All Bookings"}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -175,7 +219,7 @@ export default function ConfirmationScreen({ route, navigation }) {
             activeOpacity={0.85}
           >
             <Ionicons name="home-outline" size={18} color={COLORS.text} />
-            <Text style={styles.homeBtnText}>Back to Home</Text>
+            <Text style={styles.homeBtnText}>{locale === "ur" ? "ہوم پر واپس جائیں" : "Back to Home"}</Text>
           </TouchableOpacity>
         </Animated.View>
 

@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import {
   View, Text, StyleSheet, FlatList, Modal, ScrollView,
   TouchableOpacity, RefreshControl, Alert, TextInput,
@@ -13,15 +13,32 @@ import { COLORS, FONTS, RADIUS } from "../../constants/theme";
 import { StatusBadge } from "../../components/ui/Badge";
 import { SkeletonCard } from "../../components/ui/Skeleton";
 import { OUTCOME_CFG } from "../../components/BookingModal";
+import { useLanguage } from "../../contexts/LanguageContext";
 
 // ── Transcript / Details Modal ────────────────────────────────────────────────
 function TranscriptModal({ visible, booking, callData, loading, onClose }) {
+  const { t, locale } = useLanguage();
   const circleScale  = useRef(new Animated.Value(0)).current;
   const pulseRing1   = useRef(new Animated.Value(0)).current;
   const pulseRing2   = useRef(new Animated.Value(0)).current;
   const slideAnims   = useRef([0, 1, 2].map(() => new Animated.Value(250))).current;
 
   const isSuccess   = booking?.status === "CONFIRMED" || callData?.outcome === "ACCEPTED";
+
+  const getServiceLabel = (service) => {
+    if (!service) return "—";
+    if (locale !== "ur") return service;
+    const lower = service.toLowerCase();
+    if (lower.includes("plumber") || lower.includes("plumbing")) return "پلمبر";
+    if (lower.includes("electrician")) return "الیکٹریشن";
+    if (lower.includes("doctor") || lower.includes("hospital")) return "ڈاکٹر";
+    if (lower.includes("carpenter")) return "بڑھئی";
+    if (lower.includes("tutor")) return "ٹیوٹر";
+    if (lower.includes("cleaner")) return "کلینر";
+    if (lower.includes("mechanic")) return "مکینک";
+    if (lower.includes("painter")) return "پینٹر";
+    return service;
+  };
 
   // Confetti points particles
   const particles = useMemo(() => {
@@ -144,37 +161,60 @@ function TranscriptModal({ visible, booking, callData, loading, onClose }) {
 
   const circleColor = isSuccess ? COLORS.success : (outcomeCfg?.color || COLORS.primary);
   const circleIcon  = isSuccess ? "checkmark"    : (outcomeCfg?.icon  || "receipt-outline");
-  const titleText   = isSuccess ? "Booking Confirmed" : (outcomeCfg?.title || "Booking Details");
+  const titleText   = isSuccess 
+    ? t("bookingConfirmed") 
+    : (outcomeCfg?.title 
+        ? (locale === "ur" ? "بکنگ کی تفصیلات" : outcomeCfg.title) 
+        : (locale === "ur" ? "بکنگ کی تفصیلات" : "Booking Details"));
+        
   const subText     = isSuccess
-    ? "Provider confirmed your appointment"
-    : (outcomeCfg?.sub || booking?.status || "—");
+    ? t("providerConfirmedAppt")
+    : (outcomeCfg?.sub 
+        ? (locale === "ur" && outcomeCfg.sub.includes("cancelled") ? "بکنگ منسوخ کر دی گئی ہے" : outcomeCfg.sub)
+        : (booking?.status ? t(booking.status.toLowerCase()) : "—"));
 
   const followUps = [
     {
       icon: "notifications-outline",
-      when: "10 MIN BEFORE ARRIVAL",
-      msg: `Your service provider is on the way. ${booking?.provider_name ? booking.provider_name.split(" ")[0] : "Provider"} is 8 mins away.`,
+      when: t("tenMinBefore"),
+      msg: locale === "ur"
+        ? `آپ کا سروس فراہم کار راستے میں ہے۔ ${booking?.provider_name ? booking.provider_name.split(" ")[0] : "فراہم کنندہ"} 8 منٹ کی دوری پر ہے۔`
+        : `Your service provider is on the way. ${booking?.provider_name ? booking.provider_name.split(" ")[0] : "Provider"} is 8 mins away.`,
     },
-    { icon: "star-outline",      when: "AFTER SERVICE",  msg: `How did it go? Tap to rate ${booking?.provider_name || "Provider"}.` },
-    { icon: "chatbubble-outline", when: "3 DAYS LATER",  msg: "Hope everything went well! Need a follow-up visit?" },
+    { 
+      icon: "star-outline",      
+      when: t("afterService"),  
+      msg: locale === "ur"
+        ? `کیسا رہا؟ ${booking?.provider_name || "فراہم کنندہ"} کو ریٹ کرنے کے لیے دبائیں۔`
+        : `How did it go? Tap to rate ${booking?.provider_name || "Provider"}.` 
+    },
+    { 
+      icon: "chatbubble-outline", 
+      when: t("threeDaysLater"),  
+      msg: locale === "ur"
+        ? "امید ہے سب ٹھیک رہا ہوگا! کیا آپ کو دوبارہ سروس کی ضرورت ہے؟"
+        : "Hope everything went well! Need a follow-up visit?" 
+    },
   ];
 
   const receiptRows = [
-    { label: "Service",  value: booking?.service || booking?.service_category || "—" },
-    { label: "Provider", value: booking?.provider_name || "—" },
+    { label: t("service"),  value: getServiceLabel(booking?.service || booking?.service_category) },
+    { label: t("provider"), value: booking?.provider_name || "—" },
     { 
-      label: "When",     
+      label: t("when"),     
       value: booking?.time_slot?.startsWith("pending_") && booking?.suggested_time
         ? booking.suggested_time
-        : (booking?.date ? `${booking.date}${booking.time_slot ? ` · ${booking.time_slot}` : ""}` : "Pending")
+        : (booking?.date ? `${booking.date}${booking.time_slot ? ` · ${booking.time_slot}` : ""}` : t("pending"))
     },
     ...(booking?.location_address && !booking.location_address.startsWith("pending_")
-      ? [{ label: "Address", value: booking.location_address }] : []),
+      ? [{ label: t("address"), value: booking.location_address }] : []),
   ];
 
   const statusColor = booking?.status === "CONFIRMED" ? COLORS.success
     : booking?.status === "CANCELLED" ? "#EF4444"
     : COLORS.warning;
+
+  const statusLabel = booking?.status ? t(booking.status.toLowerCase()) : t("pending");
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -224,7 +264,7 @@ function TranscriptModal({ visible, booking, callData, loading, onClose }) {
           {loading ? (
             <View style={tm.centered}>
               <ActivityIndicator size="large" color={COLORS.success} style={{ marginBottom: 12 }} />
-              <Text style={tm.loadingText}>Loading call details…</Text>
+              <Text style={tm.loadingText}>{locale === "ur" ? "کال کی تفصیلات لوڈ کی جا رہی ہیں..." : "Loading call details…"}</Text>
             </View>
           ) : (
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={tm.scrollContent}>
@@ -294,7 +334,7 @@ function TranscriptModal({ visible, booking, callData, loading, onClose }) {
               <View style={tm.receiptCard}>
                 <View style={tm.receiptHeader}>
                   <View>
-                    <Text style={tm.receiptIdLabel}>BOOKING ID</Text>
+                    <Text style={tm.receiptIdLabel}>{t("bookingId")}</Text>
                     <Text style={tm.receiptIdValue}>
                       {(() => {
                         const rawId = booking?.booking_id || booking?.id || "";
@@ -306,7 +346,7 @@ function TranscriptModal({ visible, booking, callData, loading, onClose }) {
                   </View>
                   <View style={[tm.statusPill, { backgroundColor: statusColor + "15", borderColor: statusColor + "44" }]}>
                     <Ionicons name={booking?.status === "CONFIRMED" ? "checkmark-circle" : "time-outline"} size={11} color={statusColor} style={{ marginRight: 3 }} />
-                    <Text style={[tm.statusPillText, { color: statusColor }]}>{booking?.status || "PENDING"}</Text>
+                    <Text style={[tm.statusPillText, { color: statusColor }]}>{statusLabel}</Text>
                   </View>
                 </View>
 
@@ -338,7 +378,7 @@ function TranscriptModal({ visible, booking, callData, loading, onClose }) {
                 <View style={tm.suggestedBox}>
                   <Ionicons name="time" size={16} color={COLORS.warning} />
                   <View style={{ flex: 1 }}>
-                    <Text style={tm.suggestedLabel}>PROVIDER SUGGESTED NEW SLOT</Text>
+                    <Text style={tm.suggestedLabel}>{locale === "ur" ? "فراہم کنندہ نے نیا وقت تجویز کیا ہے" : "PROVIDER SUGGESTED NEW SLOT"}</Text>
                     <Text style={tm.suggestedValue}>{callData.suggested_time}</Text>
                   </View>
                 </View>
@@ -348,7 +388,7 @@ function TranscriptModal({ visible, booking, callData, loading, onClose }) {
               <View style={tm.sectionHeader}>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                   <View style={tm.purpleVerticalBar} />
-                  <Text style={tm.sectionTitle}>AI follow-ups scheduled</Text>
+                  <Text style={tm.sectionTitle}>{t("aiFollowups")}</Text>
                 </View>
                 <View style={tm.geminiBadge}>
                   <Ionicons name="sparkles" size={10} color={COLORS.violet} />
@@ -379,8 +419,6 @@ function TranscriptModal({ visible, booking, callData, loading, onClose }) {
                 ))}
               </View>
 
-
-
             </ScrollView>
           )}
 
@@ -393,7 +431,7 @@ function TranscriptModal({ visible, booking, callData, loading, onClose }) {
                 style={tm.doneBtnGrad}
               >
                 <Ionicons name="close-circle-outline" size={18} color="#fff" />
-                <Text style={tm.doneBtnText}>Close</Text>
+                <Text style={tm.doneBtnText}>{locale === "ur" ? "بند کریں" : "Close"}</Text>
               </LinearGradient>
             </TouchableOpacity>
           </View>
@@ -545,6 +583,7 @@ function AgentNegotiationPanel({ booking, onResolved }) {
 
 // ── Booking Card ───────────────────────────────────────────────────────────────
 function BookingCard({ booking, onCancel, onRefresh }) {
+  const { t, locale } = useLanguage();
   const isAIPending = booking.status === "PENDING" && !!booking.call_log_id;
   const canCancel   = booking.status === "PENDING" && !booking.call_log_id;
 
@@ -569,26 +608,55 @@ function BookingCard({ booking, onCancel, onRefresh }) {
     onRefresh();
   };
 
+  const getServiceLabel = (service) => {
+    if (!service) return "—";
+    if (locale !== "ur") return service;
+    const lower = service.toLowerCase();
+    if (lower.includes("plumber") || lower.includes("plumbing")) return "پلمبر";
+    if (lower.includes("electrician")) return "الیکٹریشن";
+    if (lower.includes("doctor") || lower.includes("hospital")) return "ڈاکٹر";
+    if (lower.includes("carpenter")) return "بڑھئی";
+    if (lower.includes("tutor")) return "ٹیوٹر";
+    if (lower.includes("cleaner")) return "کلینر";
+    if (lower.includes("mechanic")) return "مکینک";
+    if (lower.includes("painter")) return "پینٹر";
+    return service;
+  };
+
   // date helper for left calendar badge
   const getBadgeDate = (dateStr) => {
-    if (!dateStr) return { top: "PEND", bottom: "—" };
+    if (!dateStr) return { top: locale === "ur" ? "ملتوی" : "PEND", bottom: "—" };
     const lower = dateStr.toLowerCase();
-    if (lower.includes("today")) return { top: "TODAY", bottom: "★" };
-    if (lower.includes("tomorrow")) return { top: "TMRW", bottom: "☆" };
+    if (lower.includes("today")) return { top: locale === "ur" ? "آج" : "TODAY", bottom: "★" };
+    if (lower.includes("tomorrow")) return { top: locale === "ur" ? "کل" : "TMRW", bottom: "☆" };
     
     try {
       const d = new Date(dateStr);
       if (isNaN(d.getTime())) {
         const parts = dateStr.split(" ");
         if (parts.length >= 2) {
-          return { top: parts[0].slice(0, 3).toUpperCase(), bottom: parts[1].replace(/\D/g, "") || "—" };
+          const m = parts[0].slice(0, 3).toUpperCase();
+          const urMonths = {
+            JAN: "جنوری", FEB: "فروری", MAR: "مارچ", APR: "اپریل",
+            MAY: "مئی", JUN: "جون", JUL: "جولائی", AUG: "اگست",
+            SEP: "ستمبر", OCT: "اکتوبر", NOV: "نومبر", DEC: "دسمبر"
+          };
+          const topVal = locale === "ur" ? (urMonths[m] || m) : m;
+          return { top: topVal, bottom: parts[1].replace(/\D/g, "") || "—" };
         }
-        return { top: "DATE", bottom: dateStr.slice(0, 3) };
+        return { top: locale === "ur" ? "تاریخ" : "DATE", bottom: dateStr.slice(0, 3) };
       }
       const months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
-      return { top: months[d.getMonth()], bottom: String(d.getDate()) };
+      const mLabel = months[d.getMonth()];
+      const urMonths = {
+        JAN: "جنوری", FEB: "فروری", MAR: "مارچ", APR: "اپریل",
+        MAY: "مئی", JUN: "جون", JUL: "جولائی", AUG: "اگست",
+        SEP: "ستمبر", OCT: "اکتوبر", NOV: "نومبر", DEC: "دسمبر"
+      };
+      const topVal = locale === "ur" ? urMonths[mLabel] : mLabel;
+      return { top: topVal, bottom: String(d.getDate()) };
     } catch {
-      return { top: "DATE", bottom: "—" };
+      return { top: locale === "ur" ? "تاریخ" : "DATE", bottom: "—" };
     }
   };
 
@@ -606,7 +674,7 @@ function BookingCard({ booking, onCancel, onRefresh }) {
         {/* Right Details Panel */}
         <View style={styles.detailsPanel}>
           <View style={styles.cardHeaderRow}>
-            <Text style={styles.service} numberOfLines={1}>{booking.service}</Text>
+            <Text style={styles.service} numberOfLines={1}>{getServiceLabel(booking.service)}</Text>
             <StatusBadge status={booking.status} />
           </View>
           
@@ -615,7 +683,7 @@ function BookingCard({ booking, onCancel, onRefresh }) {
           {isAIPending && (
             <View style={styles.aiAgentChip}>
               <Ionicons name="sparkles" size={10} color={COLORS.primary} />
-              <Text style={styles.aiAgentChipText}>AI Agent Negotiation</Text>
+              <Text style={styles.aiAgentChipText}>{locale === "ur" ? "AI ایجنٹ مذاکرات" : "AI Agent Negotiation"}</Text>
             </View>
           )}
 
@@ -626,7 +694,7 @@ function BookingCard({ booking, onCancel, onRefresh }) {
               <Text style={[styles.metaText, isAIPending && { color: COLORS.primaryLight, fontWeight: "700" }]}>
                 {booking.time_slot?.startsWith("pending_") && booking.suggested_time
                   ? booking.suggested_time
-                  : (booking.time_slot ? booking.time_slot.split("–")[0]?.trim() : "Anytime")}
+                  : (booking.time_slot ? booking.time_slot.split("–")[0]?.trim() : (locale === "ur" ? "کسی بھی وقت" : "Anytime"))}
               </Text>
             </View>
 
@@ -642,7 +710,7 @@ function BookingCard({ booking, onCancel, onRefresh }) {
               <View style={[styles.metaItem, { backgroundColor: "rgba(108, 99, 255, 0.1)", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, borderColor: "rgba(108, 99, 255, 0.25)" }]}>
                 <Ionicons name="sparkles-outline" size={11} color={COLORS.primaryLight} style={{ marginRight: 2 }} />
                 <Text style={[styles.metaText, { color: COLORS.primaryLight, fontWeight: "800", fontSize: 10 }]}>
-                  Price Negotiable
+                  {t("priceNegotiable")}
                 </Text>
               </View>
             )}
@@ -669,7 +737,7 @@ function BookingCard({ booking, onCancel, onRefresh }) {
           activeOpacity={0.8}
         >
           <Ionicons name="close-circle-outline" size={14} color={COLORS.danger} />
-          <Text style={styles.cancelBtnText}>Cancel Booking</Text>
+          <Text style={styles.cancelBtnText}>{locale === "ur" ? "بکنگ منسوخ کریں" : "Cancel Booking"}</Text>
         </TouchableOpacity>
       )}
 
@@ -681,7 +749,7 @@ function BookingCard({ booking, onCancel, onRefresh }) {
           style={styles.transcriptBtnGrad}
         >
           <Ionicons name="receipt-outline" size={14} color={COLORS.primary} />
-          <Text style={styles.transcriptBtnText}>Show Ticket Details</Text>
+          <Text style={styles.transcriptBtnText}>{t("showTicketDetails")}</Text>
           <Ionicons name="chevron-forward" size={13} color={COLORS.primary} style={{ marginLeft: "auto" }} />
         </LinearGradient>
       </TouchableOpacity>
@@ -717,6 +785,7 @@ const FILTER_COLORS = {
 
 export default function BookingHistoryScreen() {
   const { userProfile } = useAuth();
+  const { t, locale } = useLanguage();
   const [bookings,   setBookings]   = useState([]);
   const [loading,    setLoading]    = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -739,12 +808,14 @@ export default function BookingHistoryScreen() {
 
   const handleCancel = (bookingId) => {
     Alert.alert(
-      "Cancel Booking",
-      "Are you sure you want to cancel this booking? This action cannot be undone.",
+      locale === "ur" ? "بکنگ منسوخ کریں" : "Cancel Booking",
+      locale === "ur" 
+        ? "کیا آپ واقعی اس بکنگ کو منسوخ کرنا چاہتے ہیں؟ اس عمل کو واپس نہیں لایا جا سکتا۔" 
+        : "Are you sure you want to cancel this booking? This action cannot be undone.",
       [
-        { text: "Keep Booking", style: "cancel" },
+        { text: locale === "ur" ? "بکنگ رکھیں" : "Keep Booking", style: "cancel" },
         {
-          text: "Yes, Cancel",
+          text: locale === "ur" ? "جی ہاں، منسوخ کریں" : "Yes, Cancel",
           style: "destructive",
           onPress: async () => {
             setCancelling(bookingId);
@@ -754,7 +825,7 @@ export default function BookingHistoryScreen() {
                 prev.map((b) => b.id === bookingId ? { ...b, status: "CANCELLED" } : b)
               );
             } catch (e) {
-              Alert.alert("Error", "Could not cancel booking. Please try again.\n" + e.message);
+              Alert.alert(locale === "ur" ? "خرابی" : "Error", (locale === "ur" ? "بکنگ منسوخ نہیں ہو سکی۔ دوبارہ کوشش کریں۔\n" : "Could not cancel booking. Please try again.\n") + e.message);
             } finally {
               setCancelling(null);
             }
@@ -779,6 +850,10 @@ export default function BookingHistoryScreen() {
     return bookings.filter(b => b.status === key).length;
   };
 
+  const subtitleText = locale === "ur"
+    ? `${bookings.length} کل · ${confirmed} تصدیق شدہ · ${pending} زیر التواء${inProgress > 0 ? ` · ${inProgress} جاری` : ""}${completed > 0 ? ` · ${completed} مکمل` : ""}`
+    : `${bookings.length} total · ${confirmed} confirmed · ${pending} pending${inProgress > 0 ? ` · ${inProgress} in progress` : ""}${completed > 0 ? ` · ${completed} done` : ""}`;
+
   return (
     <SafeAreaView style={styles.safe} edges={["bottom"]}>
       {/* Ambient Radial Gradient background */}
@@ -790,12 +865,8 @@ export default function BookingHistoryScreen() {
       </View>
 
       <View style={styles.header}>
-        <Text style={styles.title}>My Bookings</Text>
-        <Text style={styles.subtitle}>
-          {bookings.length} total · {confirmed} confirmed · {pending} pending
-          {inProgress > 0 ? ` · ${inProgress} in progress` : ""}
-          {completed > 0 ? ` · ${completed} done` : ""}
-        </Text>
+        <Text style={styles.title}>{t("myBookings")}</Text>
+        <Text style={styles.subtitle}>{subtitleText}</Text>
       </View>
 
       {/* Filter Tabs */}
@@ -805,6 +876,8 @@ export default function BookingHistoryScreen() {
             const active = filter === f.key;
             const color  = FILTER_COLORS[f.key];
             const count  = getFilterCount(f.key);
+            const labelKey = f.key === "IN_PROGRESS" ? "inProgress" : f.key.toLowerCase();
+            const labelText = t(labelKey);
             return (
               <TouchableOpacity
                 key={f.key}
@@ -812,7 +885,7 @@ export default function BookingHistoryScreen() {
                 onPress={() => setFilter(f.key)}
                 activeOpacity={0.7}
               >
-                <Text style={[styles.filterTabText, active && { color }]}>{f.label}</Text>
+                <Text style={[styles.filterTabText, active && { color }]}>{labelText}</Text>
                 <View style={[styles.filterPillBadge, active && styles.filterPillBadgeActive]}>
                   <Text style={[styles.filterPillBadgeText, active && { color }]}>{count}</Text>
                 </View>
@@ -853,10 +926,14 @@ export default function BookingHistoryScreen() {
             <View style={styles.empty}>
               <Ionicons name="receipt-outline" size={52} color={COLORS.textMuted} />
               <Text style={styles.emptyTitle}>
-                {filter === "ALL" ? "No bookings yet" : `No ${filter.toLowerCase()} bookings`}
+                {filter === "ALL" 
+                  ? (locale === "ur" ? "ابھی تک کوئی بکنگ نہیں ہے" : "No bookings yet") 
+                  : (locale === "ur" ? `کوئی ${t(filter === "IN_PROGRESS" ? "inProgress" : filter.toLowerCase())} بکنگ نہیں ہے` : `No ${filter.toLowerCase()} bookings`)}
               </Text>
               <Text style={styles.emptySub}>
-                {filter === "ALL" ? "Book a service from the Home tab" : "Try a different filter"}
+                {filter === "ALL" 
+                  ? (locale === "ur" ? "ہوم ٹیب سے سروس بک کریں" : "Book a service from the Home tab") 
+                  : (locale === "ur" ? "کوئی دوسرا فلٹر آزمائیں" : "Try a different filter")}
               </Text>
             </View>
           }

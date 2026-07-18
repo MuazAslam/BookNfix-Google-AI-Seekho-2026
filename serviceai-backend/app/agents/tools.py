@@ -2,7 +2,9 @@
 Tool Registration System — Groq / OpenAI-compatible function-calling format.
 """
 
+import json
 from datetime import datetime
+from pathlib import Path
 
 from app.agents.intent_agent import parse_intent as _parse_intent
 from app.agents.search_agent import search_providers as _search_providers
@@ -10,6 +12,48 @@ from app.agents.ranking_agent import rank_providers as _rank_providers
 from app.agents.web_search_agent import web_search_providers as _web_search_providers
 from app.agents.realtime_scraper import scrape_realtime_providers as _scrape_realtime
 from app.models.schemas import ParsedIntent
+
+MOCK_SCRAPER = False
+
+_PROVIDERS_JSON = Path(__file__).parent.parent.parent / "data" / "providers.json"
+
+
+def _load_mock_providers(service_type: str, city: str, limit: int = 10) -> list:
+    """Return pre-made providers from providers.json filtered by service/city."""
+    try:
+        with open(_PROVIDERS_JSON, encoding="utf-8") as f:
+            data = json.load(f)
+        providers = data.get("providers", [])
+        svc = service_type.lower()
+        # Filter by category match, then by city match, then fall back to all
+        filtered = [p for p in providers if svc in p.get("category", "").lower()]
+        if city:
+            city_match = [p for p in filtered if city.lower() in p.get("city", "").lower()]
+            if city_match:
+                filtered = city_match
+        if not filtered:
+            filtered = providers
+        return [
+            {
+                "name":          p.get("name", ""),
+                "address":       f"{p.get('area', '')}, {p.get('city', '')}",
+                "city":          p.get("city", ""),
+                "phone":         p.get("phone", ""),
+                "rating":        p.get("rating"),
+                "reviews_count": p.get("review_count"),
+                "lat":           p.get("lat"),
+                "lng":           p.get("lng"),
+                "distance_km":   None,
+                "category":      p.get("category", service_type),
+                "source":        "mock",
+                "website":       "",
+                "hours":         None,
+            }
+            for p in filtered[:limit]
+        ]
+    except Exception as e:
+        print(f"[mock] Failed to load providers.json: {e}")
+        return []
 
 
 # ─── Tool Definitions (OpenAI-compatible) ────────────────────────────────────
@@ -380,14 +424,27 @@ async def _exec_scrape_realtime(fn_args: dict, ctx) -> tuple[dict, str]:
     city         = fn_args.get("city")         or parsed.get("city", "")
     max_results  = min(int(fn_args.get("max_results", 10)), 20)
 
-    scrape_result = await _scrape_realtime(
-        service_type=service_type,
-        location=location,
-        city=city,
-        user_lat=ctx.user_lat,
-        user_lng=ctx.user_lng,
-        max_results=max_results,
-    )
+    if MOCK_SCRAPER:
+        # TODO: re-enable live scraping when ready — remove this block
+        print(f"[mock] Returning pre-made results for {service_type!r} in {city!r}")
+        mock_providers = _load_mock_providers(service_type, city, max_results)
+        scrape_result = {
+            "found":            len(mock_providers),
+            "source":           "mock",
+            "location":         f"{location}, {city}".strip(", "),
+            "location_display": f"{location}, {city}".strip(", "),
+            "detected_city":    city,
+            "providers":        mock_providers,
+        }
+    else:
+        scrape_result = await _scrape_realtime(
+            service_type=service_type,
+            location=location,
+            city=city,
+            user_lat=ctx.user_lat,
+            user_lng=ctx.user_lng,
+            max_results=max_results,
+        )
 
     # Store full results for the SSE complete event — NOT sent to Groq
     ctx.web_results = scrape_result.get("providers", [])

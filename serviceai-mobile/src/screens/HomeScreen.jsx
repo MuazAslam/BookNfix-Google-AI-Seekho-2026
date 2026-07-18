@@ -11,6 +11,7 @@ import BrandLogo from "../components/BrandLogo";
 export default function HomeScreen({ navigation }) {
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
+  const [otherService, setOtherService] = useState("");
 
   const handleAnalyze = async () => {
     if (!text.trim()) {
@@ -30,6 +31,13 @@ export default function HomeScreen({ navigation }) {
 
   const handleCategory = (cat) => {
     setText(`I need a ${cat.label.toLowerCase()} near me`);
+  };
+
+  const applyOtherService = () => {
+    const trimmed = otherService.trim();
+    if (!trimmed) return;
+    setText(`I need a ${trimmed.toLowerCase()} near me`);
+    setOtherService("");
   };
 
   return (
@@ -57,8 +65,8 @@ export default function HomeScreen({ navigation }) {
 
         {/* Quick categories */}
         <Text style={styles.sectionTitle}>Quick Select</Text>
-        <View style={styles.catGrid}>
-          {CATEGORIES.map((cat) => (
+        <View style={[styles.catGrid, { marginBottom: 16 }]}>
+          {CATEGORIES.filter((cat) => cat.key !== "other").map((cat) => (
             <TouchableOpacity
               key={cat.key}
               style={styles.catCard}
@@ -68,6 +76,27 @@ export default function HomeScreen({ navigation }) {
               <Text style={styles.catLabel}>{cat.label}</Text>
             </TouchableOpacity>
           ))}
+        </View>
+
+        {/* Other service input — always visible */}
+        <Text style={styles.sectionTitle}>Other Service</Text>
+        <View style={styles.otherRow}>
+          <TextInput
+            style={styles.otherInput}
+            value={otherService}
+            onChangeText={setOtherService}
+            placeholder="e.g. Welder, Gardener, Tailor..."
+            placeholderTextColor={COLORS.textMuted}
+            returnKeyType="done"
+            onSubmitEditing={applyOtherService}
+          />
+          <TouchableOpacity
+            style={[styles.otherBtn, !otherService.trim() && styles.otherBtnDisabled]}
+            onPress={applyOtherService}
+            disabled={!otherService.trim()}
+          >
+            <Text style={styles.otherBtnText}>Apply</Text>
+          </TouchableOpacity>
         </View>
 
         {/* CTA */}
@@ -119,7 +148,7 @@ const styles = StyleSheet.create({
     minHeight: 72, textAlignVertical: "top",
   },
   sectionTitle: { fontSize: 13, color: COLORS.textSecondary, marginBottom: 12, ...FONTS.medium },
-  catGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 28 },
+  catGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   catCard: {
     backgroundColor: COLORS.card, borderRadius: RADIUS.md,
     padding: 14, alignItems: "center", width: "30%",
@@ -127,6 +156,23 @@ const styles = StyleSheet.create({
   },
   catIcon: { fontSize: 24, marginBottom: 4 },
   catLabel: { fontSize: 11, color: COLORS.text, ...FONTS.medium },
+  otherRow: {
+    flexDirection: "row", alignItems: "center", gap: 10,
+    marginTop: 4, marginBottom: 20, minHeight: 48,
+  },
+  otherInput: {
+    flex: 1, height: 48, backgroundColor: COLORS.card, borderRadius: RADIUS.md,
+    borderWidth: 1, borderColor: COLORS.primary,
+    paddingHorizontal: 14,
+    color: COLORS.text, fontSize: 14,
+  },
+  otherBtn: {
+    backgroundColor: COLORS.primary, borderRadius: RADIUS.md,
+    height: 48, paddingHorizontal: 18,
+    justifyContent: "center", alignItems: "center",
+  },
+  otherBtnDisabled: { opacity: 0.4 },
+  otherBtnText: { color: "#fff", fontSize: 14, ...FONTS.semiBold },
   btn: {
     backgroundColor: COLORS.primary, borderRadius: RADIUS.lg,
     paddingVertical: 16, alignItems: "center", marginBottom: 20,

@@ -514,16 +514,20 @@ async def scrape_realtime_providers(
 
 async def load_scraped_results(file_path: str) -> Dict:
     """Load a previously saved scraping session from file."""
-    try:
+    def _read():
         with open(file_path, "r", encoding="utf-8") as fh:
             return json.load(fh)
+    try:
+        return await asyncio.to_thread(_read)
     except Exception as exc:
         return {"error": str(exc), "file": file_path}
 
 
-def get_index() -> Dict:
+async def get_index() -> Dict:
     """Return the search index so agents can find prior scraping sessions."""
-    if not os.path.exists(INDEX_FILE):
-        return {"searches": []}
-    with open(INDEX_FILE, "r", encoding="utf-8") as fh:
-        return json.load(fh)
+    def _read():
+        if not os.path.exists(INDEX_FILE):
+            return {"searches": []}
+        with open(INDEX_FILE, "r", encoding="utf-8") as fh:
+            return json.load(fh)
+    return await asyncio.to_thread(_read)

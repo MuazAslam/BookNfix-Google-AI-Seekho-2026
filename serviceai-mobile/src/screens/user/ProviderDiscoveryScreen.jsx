@@ -13,6 +13,7 @@ import { db as firestoreDB } from "../../config/firebase";
 import { ChatAPI } from "../../services/chatApi";
 import { API } from "../../services/api";
 import { COLORS, RADIUS } from "../../constants/theme";
+import { useLanguage } from "../../contexts/LanguageContext";
 
 // ── Firestore provider query ──────────────────────────────────────────────────
 async function fetchFirestoreProviders(categoryFilter, cityFilter, textQuery) {
@@ -121,12 +122,19 @@ function StarRow({ rating }) {
 }
 
 function ProviderCard({ item, onPress, onChat }) {
+  const { t, locale } = useLanguage();
+  
+  // Translate dynamic services categories
+  const categoryDisplay = locale === "ur"
+    ? item.category === "doctor" ? "ڈاکٹر" : item.category === "plumber" ? "پلمبر" : item.category === "electrician" ? "الیکٹریشن" : item.category === "carpenter" ? "بڑھئی" : item.category === "tutor" ? "ٹیوٹر" : item.category
+    : item.category;
+
   const priceStr =
     item.price_min > 0
       ? item.price_max > 0
         ? `₨${item.price_min.toLocaleString()}–${item.price_max.toLocaleString()}`
-        : `From ₨${item.price_min.toLocaleString()}`
-      : "Price on request";
+        : locale === "ur" ? `پیسے ₨${item.price_min.toLocaleString()} سے` : `From ₨${item.price_min.toLocaleString()}`
+      : t("priceOnRequest");
 
   return (
     <TouchableOpacity style={pc.card} onPress={onPress} activeOpacity={0.82}>
@@ -158,7 +166,7 @@ function ProviderCard({ item, onPress, onChat }) {
             )}
           </View>
           <Text style={pc.category}>
-            {item.category} · {item.area}, {item.city}
+            {categoryDisplay} · {item.area}, {item.city}
           </Text>
         </View>
         {item.distance_km != null && (
@@ -176,7 +184,7 @@ function ProviderCard({ item, onPress, onChat }) {
         {item.experience_years > 0 && (
           <>
             <View style={pc.dot} />
-            <Text style={pc.exp}>{item.experience_years}y exp</Text>
+            <Text style={pc.exp}>{t("yearsExp", { years: item.experience_years })}</Text>
           </>
         )}
         <View style={{ flex: 1 }} />
@@ -196,7 +204,7 @@ function ProviderCard({ item, onPress, onChat }) {
       <View style={pc.ctaRow}>
         <TouchableOpacity style={pc.chatBtn} onPress={onChat} activeOpacity={0.8}>
           <Ionicons name="chatbubble-outline" size={13} color={COLORS.primary} />
-          <Text style={pc.chatBtnText}>Message</Text>
+          <Text style={pc.chatBtnText}>{t("message")}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={pc.bookBtn} onPress={onPress} activeOpacity={0.85}>
           <LinearGradient
@@ -205,7 +213,7 @@ function ProviderCard({ item, onPress, onChat }) {
             end={{ x: 1, y: 0 }}
             style={pc.bookBtnGrad}
           >
-            <Text style={pc.bookBtnText}>View Profile</Text>
+            <Text style={pc.bookBtnText}>{t("viewProfile")}</Text>
             <Ionicons name="arrow-forward" size={12} color="#fff" />
           </LinearGradient>
         </TouchableOpacity>
@@ -216,6 +224,7 @@ function ProviderCard({ item, onPress, onChat }) {
 
 // ── Filter sheet (city + service + rating + experience + verified + sort) ──────
 function FilterSheet({ visible, filters, onApply, onClose }) {
+  const { t, locale } = useLanguage();
   const [local, setLocal] = useState(filters);
   const [mounted, setMounted] = useState(visible);
   const ty = useRef(new Animated.Value(600)).current;
@@ -235,14 +244,42 @@ function FilterSheet({ visible, filters, onApply, onClose }) {
         duration: 200,
         useNativeDriver: true,
       }).start(({ finished }) => {
-        // Only unmount AFTER the close animation actually completes,
-        // so the full-screen overlay can never linger and block touches.
         if (finished) setMounted(false);
       });
     }
   }, [visible]);
 
   if (!mounted) return null;
+
+  const getCityLabel = (c) => {
+    if (locale !== "ur") return c;
+    const cities = {
+      Lahore: "لاہور", Karachi: "کراچی", Islamabad: "اسلام آباد",
+      Rawalpindi: "راولپنڈی", Faisalabad: "فیصل آباد", Multan: "ملتان", Peshawar: "پشاور"
+    };
+    return cities[c] || c;
+  };
+
+  const getCategoryLabel = (catId, defaultLabel) => {
+    if (locale !== "ur") return defaultLabel;
+    const cats = {
+      all: "تمام", plumber: "پلمبر", electrician: "الیکٹریشن",
+      tutor: "ٹیوٹر", carpenter: "بڑھئی", painter: "پینٹر",
+      doctor: "ڈاکٹر", cleaner: "کلینر", mechanic: "مکینک",
+      gardener: "مالی", other: "دیگر"
+    };
+    return cats[catId] || defaultLabel;
+  };
+
+  const getSortLabel = (optId, defaultLabel) => {
+    if (locale !== "ur") return defaultLabel;
+    const opts = {
+      relevance: "بہترین میچ", rating: "اعلی ترین درجہ بندی",
+      price_asc: "قیمت کم سے زیادہ", price_desc: "قیمت زیادہ سے کم",
+      experience: "تجربہ"
+    };
+    return opts[optId] || defaultLabel;
+  };
 
   return (
     <View style={fs.overlay}>
@@ -254,17 +291,17 @@ function FilterSheet({ visible, filters, onApply, onClose }) {
       <Animated.View style={[fs.sheet, { transform: [{ translateY: ty }] }]}>
         <ScrollView showsVerticalScrollIndicator={false}>
           <View style={fs.handle} />
-          <Text style={fs.title}>Filters</Text>
+          <Text style={fs.title}>{locale === "ur" ? "فلٹرز" : "Filters"}</Text>
 
           {/* City */}
-          <Text style={fs.sec}>City</Text>
+          <Text style={fs.sec}>{locale === "ur" ? "شہر" : "City"}</Text>
           <View style={fs.cityInputRow}>
             <Ionicons name="location-outline" size={15} color={COLORS.primary} style={{ marginLeft: 10 }} />
             <TextInput
               style={fs.cityInput}
               value={local.city}
               onChangeText={(v) => setLocal((p) => ({ ...p, city: v }))}
-              placeholder="Any city (e.g. Lahore, Karachi…)"
+              placeholder={locale === "ur" ? "کوئی بھی شہر (جیسے لاہور، کراچی...)" : "Any city (e.g. Lahore, Karachi…)"}
               placeholderTextColor={COLORS.textMuted}
               returnKeyType="done"
             />
@@ -289,14 +326,14 @@ function FilterSheet({ visible, filters, onApply, onClose }) {
                   }
                   activeOpacity={0.75}
                 >
-                  <Text style={[fs.pillText, active && { color: "#fff" }]}>{c}</Text>
+                  <Text style={[fs.pillText, active && { color: "#fff" }]}>{getCityLabel(c)}</Text>
                 </TouchableOpacity>
               );
             })}
           </View>
 
           {/* Service / Category */}
-          <Text style={fs.sec}>Service</Text>
+          <Text style={fs.sec}>{t("service")}</Text>
           <View style={fs.row}>
             {CATEGORIES.map((cat) => {
               const active = local.category === cat.id;
@@ -313,7 +350,7 @@ function FilterSheet({ visible, filters, onApply, onClose }) {
                     color={active ? "#fff" : COLORS.textMuted}
                   />
                   <Text style={[fs.pillText, active && { color: "#fff" }]}>
-                    {cat.label}
+                    {getCategoryLabel(cat.id, cat.label)}
                   </Text>
                 </TouchableOpacity>
               );
@@ -321,7 +358,7 @@ function FilterSheet({ visible, filters, onApply, onClose }) {
           </View>
 
           {/* Minimum rating */}
-          <Text style={fs.sec}>Minimum Rating</Text>
+          <Text style={fs.sec}>{locale === "ur" ? "کم از کم درجہ بندی" : "Minimum Rating"}</Text>
           <View style={fs.row}>
             {RATING_OPTIONS.map((r) => (
               <TouchableOpacity
@@ -343,7 +380,7 @@ function FilterSheet({ visible, filters, onApply, onClose }) {
                   </View>
                 ) : (
                   <Text style={[fs.pillText, local.min_rating === r && { color: "#fff" }]}>
-                    Any
+                    {locale === "ur" ? "کوئی بھی" : "Any"}
                   </Text>
                 )}
               </TouchableOpacity>
@@ -351,7 +388,7 @@ function FilterSheet({ visible, filters, onApply, onClose }) {
           </View>
 
           {/* Experience */}
-          <Text style={fs.sec}>Min. Experience</Text>
+          <Text style={fs.sec}>{locale === "ur" ? "کم از کم تجربہ" : "Min. Experience"}</Text>
           <View style={fs.row}>
             {[null, 1, 3, 5, 10].map((yr) => (
               <TouchableOpacity
@@ -361,7 +398,7 @@ function FilterSheet({ visible, filters, onApply, onClose }) {
                 activeOpacity={0.75}
               >
                 <Text style={[fs.pillText, local.min_experience === yr && { color: "#fff" }]}>
-                  {yr ? `${yr}y+` : "Any"}
+                  {yr ? (locale === "ur" ? `${yr} سال+` : `${yr}y+`) : (locale === "ur" ? "کوئی بھی" : "Any")}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -379,7 +416,7 @@ function FilterSheet({ visible, filters, onApply, onClose }) {
               color={local.verified_only ? COLORS.success : COLORS.textMuted}
             />
             <Text style={[fs.toggleText, local.verified_only && { color: COLORS.success }]}>
-              Verified providers only
+              {locale === "ur" ? "صرف تصدیق شدہ سروس فراہم کنندہ" : "Verified providers only"}
             </Text>
             <Ionicons
               name={local.verified_only ? "checkmark-circle" : "ellipse-outline"}
@@ -389,7 +426,7 @@ function FilterSheet({ visible, filters, onApply, onClose }) {
           </TouchableOpacity>
 
           {/* Sort */}
-          <Text style={fs.sec}>Sort by</Text>
+          <Text style={fs.sec}>{locale === "ur" ? "ترتیب دیں" : "Sort by"}</Text>
           <View style={fs.row}>
             {SORT_OPTIONS.map((opt) => (
               <TouchableOpacity
@@ -399,7 +436,7 @@ function FilterSheet({ visible, filters, onApply, onClose }) {
                 activeOpacity={0.75}
               >
                 <Text style={[fs.pillText, local.sort_by === opt.id && { color: "#fff" }]}>
-                  {opt.label}
+                  {getSortLabel(opt.id, opt.label)}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -412,7 +449,7 @@ function FilterSheet({ visible, filters, onApply, onClose }) {
               activeOpacity={0.75}
               onPress={() => setLocal({ ...DEFAULT_FILTERS })}
             >
-              <Text style={fs.resetText}>Reset</Text>
+              <Text style={fs.resetText}>{locale === "ur" ? "ری سیٹ" : "Reset"}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={fs.applyBtn}
@@ -425,7 +462,7 @@ function FilterSheet({ visible, filters, onApply, onClose }) {
                 end={{ x: 1, y: 0 }}
                 style={fs.applyGrad}
               >
-                <Text style={fs.applyText}>Apply Filters</Text>
+                <Text style={fs.applyText}>{locale === "ur" ? "فلٹرز لاگو کریں" : "Apply Filters"}</Text>
               </LinearGradient>
             </TouchableOpacity>
           </View>
@@ -437,6 +474,7 @@ function FilterSheet({ visible, filters, onApply, onClose }) {
 
 // ── Main Screen ───────────────────────────────────────────────────────────────
 export default function ProviderDiscoveryScreen({ navigation }) {
+  const { t, locale } = useLanguage();
   const [searchQuery, setSearchQuery] = useState("");
   const [results,     setResults]     = useState([]);
   const [loading,     setLoading]     = useState(false);
@@ -675,7 +713,7 @@ export default function ProviderDiscoveryScreen({ navigation }) {
       {/* ── Results header + active chips ── */}
       <View style={s.resultsHeader}>
         <Text style={s.resultCount}>
-          {loading ? "Searching…" : `${total} providers`}
+          {loading ? (locale === "ur" ? "تلاش کی جا رہی ہے..." : "Searching…") : t("providersCount", { count: total })}
         </Text>
         <ScrollView
           horizontal
