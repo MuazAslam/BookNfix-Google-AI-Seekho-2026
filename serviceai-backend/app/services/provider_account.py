@@ -4,9 +4,10 @@ import string
 import random
 import httpx
 from pathlib import Path
+import os
 
-FIREBASE_WEB_API_KEY = "AIzaSyBfYfONuBzQ_lcDK__zfwXty7dlCjC2KBQ"
-FIREBASE_PROJECT_ID  = "hacakathon-service"
+FIREBASE_WEB_API_KEY = os.environ["FIREBASE_WEB_API_KEY"]
+FIREBASE_PROJECT_ID  = os.environ.get("FIREBASE_PROJECT_ID", "hacakathon-service")
 
 _AUTH_SIGNUP_URL = (
     f"https://identitytoolkit.googleapis.com/v1/accounts:signUp"
